@@ -1,9 +1,9 @@
 #define DELAY 400
-#define BUTTON1 12
-#define BUTTON2 11
+#define BUTTON1 47
+#define BUTTON2 49
 #define LEDS_NUM 8
 
-const int leds[] = {3, 4, 5, 6, 7, 8, 9, 10};
+const int leds[] = {22, 23, 24, 25, 26, 27, 28, 29};
 
 inline void sendAlgorithm1();
 inline void showAlgorithm1();
