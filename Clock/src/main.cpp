@@ -53,7 +53,7 @@ inline void onPressA();
 inline void onPressB();
 inline void onPressC();
 inline void onPressD();
-bool applyChanges();
+bool apply();
 inline bool checkTimeFormat(const Time &time);
 inline void shortBeep();
 inline void doubleShortBeep();
@@ -127,10 +127,10 @@ inline void onPressA()
         lcd.print(":");
       }
       } else {
-        lcd.setCursor(9, 0);
+        lcd.setCursor(11, 0);
         lcd.print("Error");
         delay(500);
-        lcd.setCursor(9, 0);
+        lcd.setCursor(11, 0);
         lcd.print("     ");
       }
     }
@@ -141,7 +141,7 @@ inline void onPressA()
   enteredTime.second = numbers[4] * 10 + numbers[5];
 
   if (checkTimeFormat(enteredTime)) {
-    if (applyChanges()) {
+    if (apply()) {
       time = enteredTime;
     }
   } else {
@@ -150,7 +150,7 @@ inline void onPressA()
     lcd.print("Wrong time");
     lcd.setCursor(0, 1);
     lcd.print("Again?");
-    if (applyChanges()) {
+    if (apply()) {
       onPressA();
     }
   }
@@ -169,7 +169,7 @@ inline void onPressD()
 {
 }
 
-bool applyChanges()
+bool apply()
 {
   lcd.setCursor(9, 1);
   lcd.print("Y-# N-*");
@@ -177,7 +177,6 @@ bool applyChanges()
   char currentKey;
   while(true){
     if(currentKey = keypad.getKey()) {
-      delay(50);
       switch(currentKey) {
           case '*':
             longBeep();
@@ -186,9 +185,10 @@ bool applyChanges()
             doubleShortBeep();
             return true;
           default:
-            return applyChanges();
+            return apply();
       }
     }
+    delay(50);
   }
 }
 
@@ -228,7 +228,7 @@ inline void longBeep()
 inline void showTime(const Time &time)
 {
   lcd.clear();
-  lcd.setCursor(0, 0);
+  lcd.setCursor(3, 0);
   lcd.print(time.hour);
   lcd.print(":");
   lcd.print(time.minute);
