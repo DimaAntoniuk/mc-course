@@ -1,19 +1,19 @@
-#include <LiquidCrystal.h>             // Подключение библиотеки LiquidCrystal для работы с ЖК-дисплеями
- 
-int time = 0;                          // Начальное значение счетчика
- 
-LiquidCrystal lcd(59, 58, 57, 56, 55, 54);   // Инициализация библиотеки LiquidCrystal с номерами контактов к которым подключен дисплей
- 
+#include <LiquidCrystal.h>
+
+int time = 0;
+
+LiquidCrystal lcd(59, 58, 57, 56, 55, 54);
+
 void setup()
 {
-  lcd.begin(16, 2);                    // Настройка количества столбцов и строк на ЖК-дисплее
-  lcd.print("Hacker Display");         // Печать текста на ЖК-дисплее
+  lcd.begin(16, 2);
+  lcd.print("Facker Display");
 }
- 
+
 void loop()
 {
-  lcd.setCursor(0,1);                  // Установка курсора во вторую строку, первый столбец
-  lcd.print(time);                     // Печать значения счетчика на ЖК-дисплее
-  delay(1000);                         // Задержка 1 сек.
-  time++;                              // Инструментируем значение счетчика
+  lcd.setCursor(0,1);
+  lcd.print(time);
+  delay(1000);
+  time++;
 }
