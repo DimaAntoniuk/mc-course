@@ -5,6 +5,10 @@
 
 #define RS 7
 #define ENABLE 6
+#define D0 A7
+#define D1 A6
+#define D2 A5
+#define D3 A4
 #define D4 A3
 #define D5 A2
 #define D6 A1
@@ -15,7 +19,7 @@
 #define BEEP_SHORT_DELAY 50
 #define BEEP_LONG_DELAY 250
 
-LiquidCrystal lcd(RS, ENABLE, D4, D5, D6, D7);
+LiquidCrystal lcd(RS, ENABLE, D0, D1, D2, D3, D4, D5, D6, D7);
 
 char hexaKeys[ROWS][COLUMNS] = {
     {'1', '2', '3', 'A'},
