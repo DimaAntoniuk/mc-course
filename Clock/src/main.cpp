@@ -13,7 +13,9 @@
 #define COLUMNS 4
 #define BUZZER A12
 #define BEEP_SHORT_DELAY 50
-#define BEEP_LONG_DELAY 250
+#define BEEP_LONG_DELAY 500
+#define MEMORY_REGISTER_LENGTH 60
+#define ERROR_DELAY 500
 
 LiquidCrystal lcd(RS, ENABLE, D4, D5, D6, D7);
 
@@ -27,44 +29,50 @@ byte columnPins[COLUMNS] = {46, 47, 48, 49};
 
 Keypad keypad = Keypad(makeKeymap(hexaKeys), rowPins, columnPins, ROWS, COLUMNS);
 
-bool isAlarm = false, isDisabled = false;
-
+bool isBeep = false;
+bool stop = false;
 struct Time
 {
-  uint8_t second, minute, hour;
+  uint8_t hour, minute, second;
 };
 Time time = {0, 0, 0};
-Time alarm = {0, 0, 0};
+
+Time memoryRegister[MEMORY_REGISTER_LENGTH];
+
+uint8_t memoryRegisterSize = 0;
 
 ISR(TIMER5_COMPA_vect)
 {
-  if (++time.second == 60)
+  if (!stop)
   {
-    time.second = 0;
-    if (++time.minute == 60)
+    if (++time.second == 60)
     {
-      time.minute = 0;
-      if (++time.hour == 24)
-        time.hour = 0;
+      time.second = 0;
+      if (++time.minute == 60)
+      {
+        time.minute = 0;
+        if (++time.hour == 24)
+          time.hour = 0;
+      }
     }
-  }
 
-  if (!isDisabled && time.hour == alarm.hour && time.minute == alarm.minute && time.second == alarm.second) {
-    isAlarm = true;
+    if (time.second == 0)
+    {
+      isBeep = true;
+    }
   }
 }
 
 inline void showTime(const Time &time);
 inline void onPressA();
-inline void onPressB();
+inline void onPressB(uint8_t &currentSavedTimeIndex);
 inline void onPressC();
 inline void onPressD();
 bool apply();
-inline bool checkTimeFormat(const Time &time);
 inline void shortBeep();
 inline void doubleShortBeep();
 inline void longBeep();
-inline void playAlarm();
+inline bool checkIndex(const uint8_t &index);
 
 void setup()
 {
@@ -79,6 +87,12 @@ void setup()
   OCR5A = 0x3D08;                                    // 1 sec (16MHz AVR)
 
   interrupts();
+  memoryRegister[0] = {1, 20, 50};
+  memoryRegister[1] = {2, 7, 44};
+  memoryRegister[2] = {4, 21, 3};
+  memoryRegister[3] = {7, 0, 4};
+  memoryRegister[4] = {10, 33, 1};
+  memoryRegisterSize = 5;
 }
 
 void loop()
@@ -90,11 +104,6 @@ void loop()
   case 'A':
     shortBeep();
     onPressA();
-    break;
-
-  case 'B':
-    shortBeep();
-    onPressB();
     break;
 
   case 'C':
@@ -113,190 +122,175 @@ void loop()
     break;
   }
 
-  if (isAlarm) {
-    playAlarm();
+  if (isBeep)
+  {
+    longBeep();
+    isBeep = false;
   }
 }
 
 inline void onPressA()
-{ 
-  Time enteredTime;
-  int numbers[6];
-  int currentSize = 0;
+{
   lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("NewTime:");
-  char enteredKey;
-  while (currentSize < 6) {
-    if (enteredKey = keypad.getKey()) {
-      shortBeep();
-      if (int(enteredKey) <= int('9') && int(enteredKey) >= int('0')) {
-        lcd.setCursor(currentSize + currentSize / 2, 1);
-        lcd.print(enteredKey);
-        numbers[currentSize] = enteredKey - '0';
-        currentSize ++;
-        if (!(currentSize % 2) && currentSize < 5 && currentSize > 0) {
-          lcd.print(":");
+  if (memoryRegisterSize > 0)
+  {
+    uint8_t input[2];
+    uint8_t inputSize = 0;
+    uint8_t currentSavedTimeIndex = 0;
+    lcd.setCursor(0, 0);
+    lcd.print("0");
+    lcd.print(currentSavedTimeIndex + 1);
+    lcd.setCursor(3, 0);
+    showTime(memoryRegister[currentSavedTimeIndex]);
+    lcd.setCursor(13, 0);
+    lcd.print("M");
+    if (memoryRegisterSize < 10)
+    {
+      lcd.print("0");
+    }
+    lcd.print(memoryRegisterSize);
+    lcd.setCursor(5, 1);
+    lcd.print("<-A Y-# B->");
+    lcd.setCursor(0, 1);
+
+    char currentKey;
+    while (true)
+    {
+      if (currentKey = keypad.getKey())
+      {
+        if (currentKey == 'A')
+        {
+          shortBeep();
+          lcd.clear();
+          break;
         }
-      } else {
-        lcd.setCursor(11, 0);
-        lcd.print("Error");
-        longBeep();
-        delay(300);
-        lcd.setCursor(11, 0);
-        lcd.print("     ");
+        else if (currentKey == 'B')
+        {
+          shortBeep();
+          onPressB(currentSavedTimeIndex);
+        }
+        else if (currentKey == '#')
+        {
+          shortBeep();
+          if (inputSize == 0)
+          {
+            lcd.setCursor(0, 1);
+            lcd.print("BAN");
+            longBeep();
+            lcd.setCursor(0, 1);
+            lcd.print("   ");
+          }
+          else if (checkIndex(inputSize == 2 ? (input[0] * 10 + input[1]-1) : input[0] - 1))
+          {
+            currentSavedTimeIndex = inputSize == 2 ? (input[0] * 10 + input[1]-1) : input[0] - 1;
+            lcd.setCursor(0, 0);
+            if (currentSavedTimeIndex < 10)
+            {
+              lcd.print("0");
+            }
+            lcd.print(currentSavedTimeIndex + 1);
+            lcd.setCursor(3, 0);
+            showTime(memoryRegister[currentSavedTimeIndex]);
+            inputSize = 0;
+            
+            lcd.setCursor(0, 1);
+            lcd.print("DONE");
+            doubleShortBeep();
+            delay(200);
+            lcd.setCursor(0, 1);
+            lcd.print("    ");
+          } else {
+            lcd.setCursor(0, 1);
+            lcd.print("BAN");
+            longBeep();
+            lcd.setCursor(0, 1);
+            lcd.print("   ");
+            inputSize = 0;
+          }
+        }
+        else if (int(currentKey) <= int('9') && int(currentKey) >= int('0'))
+        {
+          shortBeep();
+          if (inputSize < 2)
+          {
+            lcd.setCursor(inputSize, 1);
+            lcd.print(currentKey);
+            inputSize++;
+            input[inputSize - 1] = currentKey - '0';
+          }
+          else
+          {
+            lcd.setCursor(0, 1);
+            lcd.print("BAN");
+            longBeep();
+            lcd.setCursor(0, 1);
+            lcd.print("   ");
+            inputSize = 0;
+          }
+        }
       }
     }
   }
+  else
+  {
+    lcd.print("Register's empty");
 
-  enteredTime.hour = numbers[0] * 10 + numbers[1];
-  enteredTime.minute = numbers[2] * 10 + numbers[3];
-  enteredTime.second = numbers[4] * 10 + numbers[5];
-
-  if (checkTimeFormat(enteredTime)) {
-    if (apply()) {
-      time = enteredTime;
+    lcd.setCursor(10, 1);
+    lcd.print("Back-*");
+    
+    while(true) {
+      if (keypad.getKey() == '*') {
+        break;
+      }
     }
-  } else {
     lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Wrong time");
-    lcd.setCursor(0, 1);
-    lcd.print("Again?");
-    if (apply()) {
-      onPressA();
-    }
   }
-  showTime(time);
 }
 
-inline void onPressB()
+inline void onPressB(uint8_t &currentSavedTimeIndex)
 {
-  Time enteredTime;
-  int numbers[4];
-  int currentSize = 0;
-  lcd.clear();
+  if (checkIndex(currentSavedTimeIndex + 1))
+  {
+    currentSavedTimeIndex++;
+  }
   lcd.setCursor(0, 0);
-  lcd.print("Alarm:");
-  char enteredKey;
-  while (currentSize < 4) {
-    if (enteredKey = keypad.getKey()) {
-      shortBeep();
-      if (int(enteredKey) <= int('9') && int(enteredKey) >= int('0')) {
-        lcd.setCursor(currentSize + currentSize / 2, 1);
-        lcd.print(enteredKey);
-        numbers[currentSize] = enteredKey - '0';
-        currentSize ++;
-        if (!(currentSize % 2) && currentSize < 3 && currentSize > 0) {
-          lcd.print(":");
-        }
-      } else {
-        lcd.setCursor(11, 0);
-        lcd.print("Error");
-        longBeep();
-        delay(300);
-        lcd.setCursor(11, 0);
-        lcd.print("     ");
-      }
-    }
+  if (currentSavedTimeIndex < 10)
+  {
+    lcd.print("0");
   }
-
-  enteredTime.hour = numbers[0] * 10 + numbers[1];
-  enteredTime.minute = numbers[2] * 10 + numbers[3];
-  enteredTime.second = 0;
-
-  if (checkTimeFormat(enteredTime)) {
-    if (apply()) {
-      alarm = enteredTime;
-    }
-  } else {
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Wrong time");
-    lcd.setCursor(0, 1);
-    lcd.print("Again?");
-    if (apply()) {
-      onPressB();
-    }
-  }
-  showTime(time);
+  lcd.print(currentSavedTimeIndex + 1);
+  showTime(memoryRegister[currentSavedTimeIndex]);
 }
 
 inline void onPressC()
 {
-  showTime(alarm);
-  lcd.setCursor(0, 1);
-  lcd.print("Back-# ");
-  lcd.print(isDisabled ? " Enable-A":"Disable-D");
-
-  char currentKey;
-  while(true){
-    if(currentKey = keypad.getKey()) {
-      if (currentKey == '#') {
-        break;
-      } else if ((currentKey == 'D' && !isDisabled) || (currentKey == 'A' && isDisabled)) {
-        isDisabled = !isDisabled;
-        break;
-      }
-      delay(50);
-    }
-  }
-  doubleShortBeep();
-  lcd.clear();
+  time = {0, 0, 0};
+  stop = true;
 }
 
 inline void onPressD()
 {
+  stop = !stop;
 }
 
-inline void playAlarm() {
-  lcd.setCursor(0, 1);
-  lcd.print("Disable?");
-  lcd.setCursor(11, 1);
-  lcd.print("Yes-#");
-  
-  char currentKey;
-  uint8_t iteration = 0;
-  
-  while (iteration < 10) {
-    longBeep();
-    if (keypad.getKey() == '#') {
-      isAlarm = false;
-      break;
-    }
-    iteration++;
-    delay(50);
-  }
+inline bool checkIndex(const uint8_t &index)
+{
+  return index >= 0 && index < memoryRegisterSize;
 }
 
 bool apply()
 {
-  lcd.setCursor(9, 1);
-  lcd.print("Y-# N-*");
-  
-  char currentKey;
-  while(true){
-    if(currentKey = keypad.getKey()) {
-      switch(currentKey) {
-          case '*':
-            longBeep();
-            return false;
-          case '#':
-            doubleShortBeep();
-            return true;
-          default:
-            return apply();
-      }
+  lcd.setCursor(11, 1);
+  lcd.print("Yes-#");
+
+  while (true)
+  {
+    if (keypad.getKey() == '#')
+    {
+      return true;
     }
     delay(50);
   }
-}
-
-inline bool checkTimeFormat(const Time& time)
-{
-  return (time.hour < 24 && time.hour >= 0 
-    && time.minute < 60 && time.minute >= 0
-    && time.second < 60 && time.second >= 0);
 }
 
 inline void shortBeep()
@@ -311,7 +305,7 @@ inline void doubleShortBeep()
   digitalWrite(BUZZER, HIGH);
   delay(BEEP_SHORT_DELAY);
   digitalWrite(BUZZER, LOW);
-  delay(BEEP_SHORT_DELAY / 3);
+  delay(BEEP_SHORT_DELAY / 2);
   digitalWrite(BUZZER, HIGH);
   delay(BEEP_SHORT_DELAY);
   digitalWrite(BUZZER, LOW);
@@ -326,8 +320,7 @@ inline void longBeep()
 
 inline void showTime(const Time &time)
 {
-  lcd.clear();
-  lcd.setCursor(0, 0);
+  lcd.setCursor(3, 0);
   if (time.hour < 10)
     lcd.print("0");
   lcd.print(time.hour);
