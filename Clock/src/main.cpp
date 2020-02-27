@@ -36,7 +36,7 @@ struct Time
 Time time = {0, 0, 0};
 Time alarm = {0, 0, 0};
 
-ISR(TIMER1_COMPA_vect)
+ISR(TIMER5_COMPA_vect)
 {
   if (++time.second == 60)
   {
@@ -73,10 +73,10 @@ void setup()
   pinMode(BUZZER, OUTPUT);
   lcd.begin(16, 2);
 
-  TCCR1A = WGM10;
-  TCCR1B = (1 << WGM12) | (1 << CS12) | (1 << CS10); //CTC mode & Prescaler @ 1024
-  TIMSK1 = (1 << OCIE1A);                            // дозвіл на переривання по співпадінню
-  OCR1A = 0x3D08;                                    // 1 sec (16MHz AVR)
+  TCCR5A = WGM50;
+  TCCR5B = (1 << WGM52) | (1 << CS52) | (1 << CS50); //CTC mode & Prescaler @ 1024
+  TIMSK5 = (1 << OCIE5A);                            // дозвіл на переривання по співпадінню
+  OCR5A = 0x3D08;                                    // 1 sec (16MHz AVR)
 
   interrupts();
 }
