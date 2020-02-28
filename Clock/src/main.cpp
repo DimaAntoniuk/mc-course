@@ -73,6 +73,8 @@ inline void shortBeep();
 inline void doubleShortBeep();
 inline void longBeep();
 inline bool checkIndex(const uint8_t &index);
+inline void resetMemoryRegister();
+inline void saveToMemoryRegister();
 
 void setup()
 {
@@ -129,6 +131,25 @@ void loop()
   }
 }
 
+inline void resetMemoryRegister()
+{
+  memoryRegisterSize = 0;
+  doubleShortBeep();
+}
+
+inline void saveToMemoryRegister()
+{
+  if ((memoryRegisterSize + 1) <= MEMORY_REGISTER_LENGTH)
+  {
+    memoryRegister[++memoryRegisterSize] = time;
+    doubleShortBeep();
+  }
+  else
+  {
+    longBeep();
+  }
+}
+
 inline void onPressA()
 {
   lcd.clear();
@@ -180,9 +201,9 @@ inline void onPressA()
             lcd.setCursor(0, 1);
             lcd.print("   ");
           }
-          else if (checkIndex(inputSize == 2 ? (input[0] * 10 + input[1]-1) : input[0] - 1))
+          else if (checkIndex(inputSize == 2 ? (input[0] * 10 + input[1] - 1) : input[0] - 1))
           {
-            currentSavedTimeIndex = inputSize == 2 ? (input[0] * 10 + input[1]-1) : input[0] - 1;
+            currentSavedTimeIndex = inputSize == 2 ? (input[0] * 10 + input[1] - 1) : input[0] - 1;
             lcd.setCursor(0, 0);
             if (currentSavedTimeIndex < 10)
             {
@@ -192,14 +213,16 @@ inline void onPressA()
             lcd.setCursor(3, 0);
             showTime(memoryRegister[currentSavedTimeIndex]);
             inputSize = 0;
-            
+
             lcd.setCursor(0, 1);
             lcd.print("DONE");
             doubleShortBeep();
             delay(200);
             lcd.setCursor(0, 1);
             lcd.print("    ");
-          } else {
+          }
+          else
+          {
             lcd.setCursor(0, 1);
             lcd.print("BAN");
             longBeep();
@@ -237,9 +260,11 @@ inline void onPressA()
 
     lcd.setCursor(10, 1);
     lcd.print("Back-*");
-    
-    while(true) {
-      if (keypad.getKey() == '*') {
+
+    while (true)
+    {
+      if (keypad.getKey() == '*')
+      {
         break;
       }
     }
