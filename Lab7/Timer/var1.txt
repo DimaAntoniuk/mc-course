@@ -1,0 +1,382 @@
+#define BA 37
+#define BB 36
+#define BC 35
+#define BD 34
+#define BUZZER 30
+#define BEEP_SHORT_DELAY 50
+#define BEEP_LONG_DELAY 250
+
+bool isAlarm = false, isDisabled = false, showAlarm = false;
+
+struct Time
+{
+  uint8_t second, minute, hour;
+};
+Time time = {0, 0, 0};
+Time alarm = {0, 0, 0};
+
+ISR(TIMER0_COMPA_vect)
+{
+  if (++time.second == 60)
+  {
+    time.second = 0;
+    if (++time.minute == 60)
+    {
+      time.minute = 0;
+      if (++time.hour == 24)
+        time.hour = 0;
+    }
+  }
+
+  if (!isDisabled && time.hour == alarm.hour && time.minute == alarm.minute && time.second == alarm.second)
+  {
+    isAlarm = true;
+  }
+}
+
+inline void seg7ShowTime(Time &time);
+inline void seg7ShowAlarm(Time &time);
+inline void onPressA();
+inline void onPressB();
+inline void onPressC();
+inline void onPressD();
+inline void shortBeep();
+inline void doubleShortBeep();
+inline void longBeep();
+inline void playAlarm();
+
+void setup()
+{
+  noInterrupts();
+
+  pinMode(BUZZER, OUTPUT);
+
+  TCCR0A = WGM10;
+  TCCR0B = (1 << WGM02) | (1 << CS02) | (1 << CS00); //CTC mode & Prescaler @ 1024
+  TIMSK0 = (1 << OCIE0A);                            // дозвіл на переривання по співпадінню
+  OCR0A = 0x3D08;                                    // 1 sec (16MHz AVR)
+
+  interrupts();
+}
+
+void loop()
+{
+
+  if (digitalRead(BA) == false)
+  {
+    delay(10);
+    shortBeep();
+    onPressA(time);
+  }
+  if (digitalRead(BB) == false)
+  {
+    delay(10);
+    shortBeep();
+    onPressB(time);
+  }
+  if (digitalRead(BC) == false)
+  {
+    delay(10);
+    shortBeep();
+    onPressC();
+  }
+  
+  seg7ShowTime(time);
+
+  delay(100);
+
+  if (isAlarm)
+  {
+    playAlarm();
+  }
+}
+
+
+inline void onPressA(Time &time)
+{
+  time.hour++;
+  if (time.hour == 24)
+  {
+    time.hour = 0;
+  }
+}
+
+inline void onPressB(Time &time)
+{
+  time.minute++;
+  if (time.minute == 60)
+  {
+    time.minute = 0;
+  }
+}
+
+inline void onPressC()
+{
+  seg7ShowAlarm(alarm);
+  while (true)
+  {
+    if (digitalRead(BA) == false)
+    {
+      delay(10);
+      shortBeep();
+      alarm.hour++;
+      if (alarm.hour == 24)
+      {
+        alarm.hour = 0;
+      }
+      seg7ShowAlarm(alarm);
+    }
+    if (digitalRead(BB) == false)
+    {
+      delay(10);
+      shortBeep();
+      alarm.minute++;
+      if (alarm.minute == 60)
+      {
+        alarm.minute = 0;
+      }
+      seg7ShowAlarm(alarm);
+    }
+    if (digitalRead(BC) == false)
+    {
+      delay(10);
+      shortBeep();
+      break;
+    }
+    if (digitalRead(BD) == false)
+    {
+      delay(10);
+      shortBeep();
+      onPressD();
+      seg7ShowAlarm(alarm);
+    }
+  }
+  doubleShortBeep();
+}
+
+inline void onPressD()
+{
+  isDisabled = !isDisabled;
+}
+
+inline void playAlarm()
+{
+  uint8_t iteration = 0;
+
+  while (iteration < 10)
+  {
+    longBeep();
+    iteration++;
+    delay(50);
+  }
+}
+
+inline void shortBeep()
+{
+  digitalWrite(BUZZER, HIGH);
+  delay(BEEP_SHORT_DELAY);
+  digitalWrite(BUZZER, LOW);
+}
+
+inline void doubleShortBeep()
+{
+  digitalWrite(BUZZER, HIGH);
+  delay(BEEP_SHORT_DELAY);
+  digitalWrite(BUZZER, LOW);
+  delay(BEEP_SHORT_DELAY / 3);
+  digitalWrite(BUZZER, HIGH);
+  delay(BEEP_SHORT_DELAY);
+  digitalWrite(BUZZER, LOW);
+}
+
+inline void longBeep()
+{
+  digitalWrite(BUZZER, HIGH);
+  delay(BEEP_LONG_DELAY);
+  digitalWrite(BUZZER, LOW);
+}
+
+void seg7ShowTime(Time &time)
+{
+  int vertex[6] = {
+      time.hour / 10, time.hour % 10,
+      time.minute / 10, time.minute % 10,
+      time.second / 10, time.second % 10};
+  for (int i = 0; i < 6; i++)
+  {
+    int j = vertex[i];
+
+    switch (i)
+    {
+    case 0:
+      PORTA = B00000001;
+
+      break;
+    case 1:
+      PORTA = B00000010;
+
+      break;
+    case 2:
+      PORTA = B00000100;
+
+      break;
+    case 3:
+      PORTA = B00001000;
+
+      break;
+    case 4:
+      PORTA = B00010000;
+
+      break;
+    case 5:
+      PORTA = B00100000;
+
+      break;
+
+    default:
+      PORTA = B10000000;
+      delay(1);
+      break;
+    }
+
+    switch (j)
+    {
+    case 0:
+      PORTF = B11000000;
+      delay(1);
+      break;
+    case 1:
+      PORTF = B11111001;
+      delay(1);
+      break;
+    case 2:
+      PORTF = B10100100;
+      delay(1);
+      break;
+    case 3:
+      PORTF = B10110000;
+      delay(1);
+      break;
+    case 4:
+      PORTF = B10011001;
+      delay(1);
+      break;
+    case 5:
+      PORTF = B10010010;
+      delay(1);
+      break;
+    case 6:
+      PORTF = B10000010;
+      delay(1);
+      break;
+    case 7:
+      PORTF = B11111000;
+      delay(1);
+      break;
+    case 8:
+      PORTF = B10000000;
+      delay(1);
+      break;
+    case 9:
+      PORTF = B10010000;
+      delay(1);
+      break;
+
+    default:
+      PORTF = B10000000;
+      delay(1);
+      break;
+    }
+  }
+}
+
+void seg7ShowAlarm(Time &time)
+{
+  int vertex[4] = {
+      time.hour / 10, time.hour % 10,
+      time.minute / 10, time.minute % 10};
+  for (int i = 0; i < 4; i++)
+  {
+    int j = vertex[i];
+
+    switch (i)
+    {
+    case 0:
+      PORTA = B00000100;
+
+      break;
+    case 1:
+      PORTA = B00001000;
+
+      break;
+    case 2:
+      PORTA = B00010000;
+
+      break;
+    case 3:
+      PORTA = B00100000;
+
+      break;
+
+    default:
+      PORTA = B10000000;
+      delay(1);
+      break;
+    }
+
+    switch (j)
+    {
+    case 0:
+      PORTF = B11000000;
+      delay(1);
+      break;
+    case 1:
+      PORTF = B11111001;
+      delay(1);
+      break;
+    case 2:
+      PORTF = B10100100;
+      delay(1);
+      break;
+    case 3:
+      PORTF = B10110000;
+      delay(1);
+      break;
+    case 4:
+      PORTF = B10011001;
+      delay(1);
+      break;
+    case 5:
+      PORTF = B10010010;
+      delay(1);
+      break;
+    case 6:
+      PORTF = B10000010;
+      delay(1);
+      break;
+    case 7:
+      PORTF = B11111000;
+      delay(1);
+      break;
+    case 8:
+      PORTF = B10000000;
+      delay(1);
+      break;
+    case 9:
+      PORTF = B10010000;
+      delay(1);
+      break;
+
+    default:
+      PORTF = B10000000;
+      delay(1);
+      break;
+    }
+  }
+  if (!isDisabled) {
+    PORTA = B00000001;
+    delay(10);
+    PORTF = B10001000;
+    delay(10);
+  }
+}
